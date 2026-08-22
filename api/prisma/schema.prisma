@@ -1,0 +1,92 @@
+// Tenant isolation invariant:
+// Every table below (except Tenant itself) carries a `tenantId`, so every read and
+// write can be scoped by a single WHERE clause. Nothing is reachable only by walking
+// a relation from a parent row. Uniqueness that could otherwise collide across
+// tenants (customer handle, provider message id) is scoped by tenantId too.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MessageRole {
+  CUSTOMER
+  AI
+  OPERATOR
+}
+
+model Tenant {
+  id           String   @id @default(cuid())
+  name         String
+  systemPrompt String
+  createdAt    DateTime @default(now())
+
+  knowledge     KnowledgeEntry[]
+  customers     Customer[]
+  conversations Conversation[]
+  messages      Message[]
+}
+
+model KnowledgeEntry {
+  id        String   @id @default(cuid())
+  tenantId  String
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  tenantId  String
+  // The `from` value on the inbound webhook (phone number, handle, ...).
+  handle    String
+  createdAt DateTime @default(now())
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation?
+
+  @@unique([tenantId, handle])
+}
+
+model Conversation {
+  id         String   @id @default(cuid())
+  tenantId   String
+  // One conversation per customer, which is the requirement:
+  // same `from` + same tenant = same thread.
+  customerId String   @unique
+  // Operator takeover flips this to false; the webhook stops auto-replying.
+  aiEnabled  Boolean  @default(true)
+  // Denormalised so the inbox list can sort without touching Message.
+  lastMessageAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([tenantId, lastMessageAt])
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  tenantId       String
+  conversationId String
+  role           MessageRole
+  text           String
+  // Provider's message id, inbound only. Used to make webhook delivery idempotent.
+  externalId     String?
+  createdAt      DateTime    @default(now())
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, externalId])
+  @@index([conversationId, createdAt])
+}
