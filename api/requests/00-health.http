@@ -1,0 +1,12 @@
+### Health check
+# The only route that does not require a tenant.
+# It runs SELECT 1 against Postgres, so a 200 means the app AND the database
+# are up - not just that the process is running.
+#
+# Expect: 200 {"status":"ok"}
+
+
+@baseUrl = http://localhost:3001
+
+
+GET {{baseUrl}}/health

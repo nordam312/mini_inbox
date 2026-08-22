@@ -1,0 +1,63 @@
+@tenant = alsalam-motors
+@customer = +966500000001
+
+@baseUrl = http://localhost:3001
+### 1. A customer messages the business for the first time
+# Creates the customer, the conversation and the message in one transaction.
+#
+# Expect: 202 {"conversationId":"...","messageId":"...","duplicate":false}
+
+# @name firstMessage
+POST {{baseUrl}}/webhook/{{tenant}}/message
+Content-Type: application/json
+
+{
+  "externalId": "wa_0001",
+  "from": "{{customer}}",
+  "text": "Do you have a Camry in stock?"
+}
+
+### 2. The SAME message is delivered again
+# WhatsApp providers retry when our response is slow or lost. Without
+# idempotency the customer's question would appear twice in the dashboard.
+#
+# Expect: 202, "duplicate":true, and the SAME messageId as request 1.
+# Nothing new is written.
+
+POST {{baseUrl}}/webhook/{{tenant}}/message
+Content-Type: application/json
+
+{
+  "externalId": "wa_0001",
+  "from": "{{customer}}",
+  "text": "Do you have a Camry in stock?"
+}
+
+### 3. The same customer sends a second, different message
+# Same sender + same tenant = same thread, so this must return the SAME
+# conversationId as request 1 with a NEW messageId.
+#
+# Expect: 202, "duplicate":false, conversationId unchanged.
+
+POST {{baseUrl}}/webhook/{{tenant}}/message
+Content-Type: application/json
+
+{
+  "externalId": "wa_0002",
+  "from": "{{customer}}",
+  "text": "What is the price?"
+}
+
+### 4. A different customer of the same tenant
+# New sender = new customer, new conversation.
+#
+# Expect: 202, a conversationId different from request 1.
+
+POST {{baseUrl}}/webhook/{{tenant}}/message
+Content-Type: application/json
+
+{
+  "externalId": "wa_0003",
+  "from": "+966500000002",
+  "text": "Do you offer financing?"
+}
