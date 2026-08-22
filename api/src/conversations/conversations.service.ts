@@ -5,6 +5,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TenantContext } from '../tenant/tenant.context';
 import { InboundMessageDto } from '../webhook/dto/inbound-message.dto';
 
+/** How many past turns the model is shown. Enough for context, bounded cost. */
+const HISTORY_LIMIT = 20;
+
+/** Everything the AI needs to answer, read in one tenant-scoped query. */
+export interface ReplyContext {
+  aiEnabled: boolean;
+  systemPrompt: string;
+  knowledge: { title: string; content: string }[];
+  messages: { role: MessageRole; text: string }[];
+}
+
 export interface RecordedMessage {
   conversationId: string;
   messageId: string;
@@ -55,6 +66,64 @@ export class ConversationsService {
       // loser succeeds on a second attempt.
       return this.persist(input);
     }
+  }
+
+  /**
+   * Returns null when the conversation does not belong to the calling tenant,
+   * which is deliberately the same answer as "does not exist".
+   */
+  async loadReplyContext(conversationId: string): Promise<ReplyContext | null> {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, tenantId: this.tenant.tenantId },
+      select: {
+        aiEnabled: true,
+        tenant: {
+          select: {
+            systemPrompt: true,
+            knowledge: {
+              select: { title: true, content: true },
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+        },
+        messages: {
+          select: { role: true, text: true },
+          orderBy: { createdAt: 'desc' },
+          take: HISTORY_LIMIT,
+        },
+      },
+    });
+
+    if (!conversation) {
+      return null;
+    }
+
+    return {
+      aiEnabled: conversation.aiEnabled,
+      systemPrompt: conversation.tenant.systemPrompt,
+      knowledge: conversation.tenant.knowledge,
+      // Read newest-first so the limit keeps the most recent turns, then
+      // flipped back into chronological order for the model.
+      messages: conversation.messages.reverse(),
+    };
+  }
+
+  async appendAiMessage(conversationId: string, text: string): Promise<void> {
+    const tenantId = this.tenant.tenantId;
+
+    await this.prisma.$transaction(async (tx) => {
+      const message = await tx.message.create({
+        data: { tenantId, conversationId, role: MessageRole.AI, text },
+        select: { createdAt: true },
+      });
+
+      // updateMany so tenantId is part of the write itself, rather than merely
+      // implied by the caller having read the conversation earlier.
+      await tx.conversation.updateMany({
+        where: { id: conversationId, tenantId },
+        data: { lastMessageAt: message.createdAt },
+      });
+    });
   }
 
   private async findByExternalId(
@@ -121,6 +190,13 @@ export class ConversationsService {
     });
   }
 }
+
+
+
+
+
+
+
 
 function isUniqueViolation(error: unknown): boolean {
   return (
