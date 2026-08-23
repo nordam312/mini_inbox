@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 
+import { ConversationsModule } from './conversations/conversations.module';
 import { HealthController } from './health/health.controller';
 import { WebhookModule } from './webhook/webhook.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -13,6 +14,7 @@ import { TenantModule } from './tenant/tenant.module';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     TenantModule,
+    ConversationsModule,
     WebhookModule,
   ],
   controllers: [HealthController],

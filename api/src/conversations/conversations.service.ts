@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { MessageRole, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,6 +7,26 @@ import { InboundMessageDto } from '../webhook/dto/inbound-message.dto';
 
 /** How many past turns the model is shown. Enough for context, bounded cost. */
 const HISTORY_LIMIT = 20;
+
+/** Bounded by default: an inbox is browsed, not exported. */
+const CONVERSATION_LIST_LIMIT = 50;
+const THREAD_MESSAGE_LIMIT = 200;
+
+export interface ConversationSummary {
+  id: string;
+  customerHandle: string;
+  aiEnabled: boolean;
+  lastMessageAt: Date;
+  lastMessage: { role: MessageRole; text: string } | null;
+}
+
+export interface ConversationDetail {
+  id: string;
+  customerHandle: string;
+  aiEnabled: boolean;
+  createdAt: Date;
+  messages: { id: string; role: MessageRole; text: string; createdAt: Date }[];
+}
 
 /** Everything the AI needs to answer, read in one tenant-scoped query. */
 export interface ReplyContext {
@@ -68,6 +88,103 @@ export class ConversationsService {
     }
   }
 
+  async listConversations(): Promise<ConversationSummary[]> {
+    const conversations = await this.prisma.conversation.findMany({
+      where: { tenantId: this.tenant.tenantId },
+      orderBy: { lastMessageAt: 'desc' },
+      take: CONVERSATION_LIST_LIMIT,
+      select: {
+        id: true,
+        aiEnabled: true,
+        lastMessageAt: true,
+        customer: { select: { handle: true } },
+        messages: {
+          select: { role: true, text: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    return conversations.map((conversation) => ({
+      id: conversation.id,
+      customerHandle: conversation.customer.handle,
+      aiEnabled: conversation.aiEnabled,
+      lastMessageAt: conversation.lastMessageAt,
+      lastMessage: conversation.messages[0] ?? null,
+    }));
+  }
+
+  async getConversation(conversationId: string): Promise<ConversationDetail> {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, tenantId: this.tenant.tenantId },
+      select: {
+        id: true,
+        aiEnabled: true,
+        createdAt: true,
+        customer: { select: { handle: true } },
+        messages: {
+          select: { id: true, role: true, text: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: THREAD_MESSAGE_LIMIT,
+        },
+      },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    return {
+      id: conversation.id,
+      customerHandle: conversation.customer.handle,
+      aiEnabled: conversation.aiEnabled,
+      createdAt: conversation.createdAt,
+      messages: conversation.messages.reverse(),
+    };
+  }
+
+  /** Idempotent: taking over an already-taken-over conversation is not an error. */
+  async takeOver(conversationId: string): Promise<{ id: string; aiEnabled: boolean }> {
+    const { count } = await this.prisma.conversation.updateMany({
+      where: { id: conversationId, tenantId: this.tenant.tenantId },
+      data: { aiEnabled: false },
+    });
+
+    if (count === 0) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    return { id: conversationId, aiEnabled: false };
+  }
+
+  /**
+   * Sending a manual reply deliberately does NOT disable the AI. Taking over is
+   * a separate, explicit action, so nothing about the conversation changes state
+   * without the operator asking for it.
+   */
+  async addOperatorReply(
+    conversationId: string,
+    text: string,
+  ): Promise<{ messageId: string }> {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, tenantId: this.tenant.tenantId },
+      select: { id: true },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    const messageId = await this.appendMessage(
+      conversationId,
+      MessageRole.OPERATOR,
+      text,
+    );
+
+    return { messageId };
+  }
+
   /**
    * Returns null when the conversation does not belong to the calling tenant,
    * which is deliberately the same answer as "does not exist".
@@ -109,12 +226,20 @@ export class ConversationsService {
   }
 
   async appendAiMessage(conversationId: string, text: string): Promise<void> {
+    await this.appendMessage(conversationId, MessageRole.AI, text);
+  }
+
+  private async appendMessage(
+    conversationId: string,
+    role: MessageRole,
+    text: string,
+  ): Promise<string> {
     const tenantId = this.tenant.tenantId;
 
-    await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const message = await tx.message.create({
-        data: { tenantId, conversationId, role: MessageRole.AI, text },
-        select: { createdAt: true },
+        data: { tenantId, conversationId, role, text },
+        select: { id: true, createdAt: true },
       });
 
       // updateMany so tenantId is part of the write itself, rather than merely
@@ -123,6 +248,8 @@ export class ConversationsService {
         where: { id: conversationId, tenantId },
         data: { lastMessageAt: message.createdAt },
       });
+
+      return message.id;
     });
   }
 
