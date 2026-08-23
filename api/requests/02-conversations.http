@@ -1,0 +1,97 @@
+@baseUrl = http://localhost:3001
+@tenant = alsalam-motors
+@customer = +966500000002
+
+### 0. Start a thread so there is something to read
+# Run this first: the requests below reuse the conversation id it returns.
+#
+# Expect: 202, "duplicate":false
+
+# @name opened
+POST {{baseUrl}}/webhook/{{tenant}}/message
+Content-Type: application/json
+
+{
+  "externalId": "conv_0001",
+  "from": "{{customer}}",
+  "text": "Are you open on Friday?"
+}
+
+@conversation = {{opened.response.body.conversationId}}
+
+### 1. The inbox list
+# Newest first, capped at 50, each row carrying the last message so the
+# dashboard can render a preview without a second request per row.
+#
+# Expect: 200, an array including {{conversation}} with an AI reply as
+# lastMessage.
+
+GET {{baseUrl}}/conversations
+x-tenant-id: {{tenant}}
+
+### 2. One thread
+# Messages in chronological order, capped at the most recent 200.
+#
+# Expect: 200, roles reading CUSTOMER then AI.
+
+GET {{baseUrl}}/conversations/{{conversation}}
+x-tenant-id: {{tenant}}
+
+### 3. The operator takes over
+# Idempotent - running it twice is not an error.
+#
+# Expect: 200 {"id":"...","aiEnabled":false}
+
+POST {{baseUrl}}/conversations/{{conversation}}/takeover
+x-tenant-id: {{tenant}}
+
+### 4. The customer writes again while the operator holds the thread
+# The message is stored, but no AI reply is generated.
+#
+# Expect: 202. Re-run request 2: a new CUSTOMER message, still no new AI one.
+
+POST {{baseUrl}}/webhook/{{tenant}}/message
+Content-Type: application/json
+
+{
+  "externalId": "conv_0002",
+  "from": "{{customer}}",
+  "text": "And Saturday?"
+}
+
+### 5. The operator answers by hand
+# Sending a reply deliberately does NOT re-enable the AI. Taking over and
+# handing back are explicit actions, so nothing changes state on its own.
+#
+# Expect: 201 {"messageId":"..."}
+
+POST {{baseUrl}}/conversations/{{conversation}}/reply
+x-tenant-id: {{tenant}}
+Content-Type: application/json
+
+{
+  "text": "We open Friday at 4pm and Saturday from 9am."
+}
+
+### 6. The operator hands the thread back
+# Note what does NOT happen: the AI does not answer the message that is already
+# waiting. It resumes on the next inbound one, so it cannot talk over an
+# operator who has just handled the question.
+#
+# Expect: 200 {"id":"...","aiEnabled":true}, and request 2 shows no new AI
+# message yet.
+
+POST {{baseUrl}}/conversations/{{conversation}}/handback
+x-tenant-id: {{tenant}}
+
+### 7. The next customer message is answered by the AI again
+# Expect: 202, and request 2 now ends with a fresh AI reply.
+
+POST {{baseUrl}}/webhook/{{tenant}}/message
+Content-Type: application/json
+
+{
+  "externalId": "conv_0003",
+  "from": "{{customer}}",
+  "text": "Do you do test drives?"
+}

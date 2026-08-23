@@ -1,0 +1,88 @@
+@baseUrl = http://localhost:3001
+@tenant = alsalam-motors
+
+### 1. Missing "text"
+# Expect: 400, listing every failed rule for the missing field.
+
+POST {{baseUrl}}/webhook/{{tenant}}/message
+Content-Type: application/json
+
+{
+  "externalId": "bad_0001",
+  "from": "+966500000004"
+}
+
+### 2. Empty "text"
+# Expect: 400 ["text should not be empty"]
+
+POST {{baseUrl}}/webhook/{{tenant}}/message
+Content-Type: application/json
+
+{
+  "externalId": "bad_0002",
+  "from": "+966500000004",
+  "text": ""
+}
+
+### 3. An unexpected property
+# The pipe is set to forbidNonWhitelisted, so unknown fields are rejected rather
+# than quietly ignored. A provider that starts sending a new field should be a
+# loud failure, not a silent one.
+#
+# Expect: 400 ["property admin should not exist"]
+
+POST {{baseUrl}}/webhook/{{tenant}}/message
+Content-Type: application/json
+
+{
+  "externalId": "bad_0003",
+  "from": "+966500000004",
+  "text": "hello",
+  "admin": true
+}
+
+### 4. Whitespace is trimmed, not rejected
+# Providers pad values. Without trimming, "+966500000005" and " +966500000005 "
+# would be two different customers with two different threads.
+#
+# Expect: 202. Then GET /conversations and confirm the handle has no spaces,
+# and that request 5 lands in the SAME conversation.
+
+# @name padded
+POST {{baseUrl}}/webhook/{{tenant}}/message
+Content-Type: application/json
+
+{
+  "externalId": "  bad_0004  ",
+  "from": "  +966500000005  ",
+  "text": "  padded input  "
+}
+
+### 5. The same sender without padding reuses the thread
+# Expect: 202 with the same conversationId as request 4.
+
+POST {{baseUrl}}/webhook/{{tenant}}/message
+Content-Type: application/json
+
+{
+  "externalId": "bad_0005",
+  "from": "+966500000005",
+  "text": "second message"
+}
+
+### 6. Empty operator reply
+# Expect: 400 ["text should not be empty"]
+
+POST {{baseUrl}}/conversations/{{padded.response.body.conversationId}}/reply
+x-tenant-id: {{tenant}}
+Content-Type: application/json
+
+{
+  "text": ""
+}
+
+### 7. A conversation id that does not exist
+# Expect: 404 - the same answer as an id owned by another tenant.
+
+GET {{baseUrl}}/conversations/does-not-exist
+x-tenant-id: {{tenant}}

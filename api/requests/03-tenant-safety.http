@@ -1,0 +1,91 @@
+@baseUrl = http://localhost:3001
+@owner = alsalam-motors
+@intruder = bright-smile
+@customer = +966500000003
+
+### 0. The owner starts a thread
+# Expect: 202
+
+# @name owned
+POST {{baseUrl}}/webhook/{{owner}}/message
+Content-Type: application/json
+
+{
+  "externalId": "safety_0001",
+  "from": "{{customer}}",
+  "text": "Do you have a Sonata?"
+}
+
+@conversation = {{owned.response.body.conversationId}}
+
+### 1. The owner reads its own thread
+# Expect: 200
+
+GET {{baseUrl}}/conversations/{{conversation}}
+x-tenant-id: {{owner}}
+
+### 2. Another tenant reads the same id
+# 404, not 403. A 403 would confirm the id exists and belongs to someone else;
+# 404 is the same answer the caller gets for an id that never existed.
+#
+# Expect: 404 {"message":"Conversation not found"}
+
+GET {{baseUrl}}/conversations/{{conversation}}
+x-tenant-id: {{intruder}}
+
+### 3. Another tenant tries to disable the AI on it
+# Writes are scoped exactly like reads.
+#
+# Expect: 404
+
+POST {{baseUrl}}/conversations/{{conversation}}/takeover
+x-tenant-id: {{intruder}}
+
+### 4. Another tenant tries to post a message into it
+# The ownership check is part of the write itself: the tenant-scoped update runs
+# first and must match a row before any message is inserted.
+#
+# Expect: 404, and nothing added to the thread. Verify with request 1.
+
+POST {{baseUrl}}/conversations/{{conversation}}/reply
+x-tenant-id: {{intruder}}
+Content-Type: application/json
+
+{
+  "text": "This must never appear in the other tenant's thread."
+}
+
+### 5. It is not in the list either
+# Expect: 200, an array that does not contain {{conversation}}.
+
+GET {{baseUrl}}/conversations
+x-tenant-id: {{intruder}}
+
+### 6. No tenant header at all
+# Expect: 401 {"message":"Unknown or missing tenant"}
+
+GET {{baseUrl}}/conversations
+
+### 7. A tenant id that does not exist
+# The same 401 and the same message as request 6, deliberately: the API should
+# not become a way to discover which tenant ids are real.
+#
+# Expect: 401
+
+GET {{baseUrl}}/conversations
+x-tenant-id: no-such-tenant
+
+### 8. The same phone number belongs to both tenants independently
+# One person can be a customer of two businesses. Each gets its own customer
+# row and its own conversation.
+#
+# Expect: 202 with a conversationId DIFFERENT from {{conversation}}.
+
+POST {{baseUrl}}/webhook/{{intruder}}/message
+Content-Type: application/json
+
+{
+  "externalId": "safety_0001",
+  "from": "{{customer}}",
+  "text": "How much is a cleaning?"
+}
