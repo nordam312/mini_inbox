@@ -14,9 +14,12 @@ dashboard and take over.
 ## Running it
 
 ```bash
-pnpm setup    # writes .env files, starts Postgres, installs, migrates, seeds
-pnpm dev      # api on :3001, web on :3000
+pnpm run setup   # writes .env files, starts Postgres, installs, migrates, seeds
+pnpm dev         # api on :3001, web on :3000
 ```
+
+`run` is not optional on the first one: `pnpm setup` is a built-in pnpm command
+that configures pnpm itself, and built-ins take precedence over scripts.
 
 Then open <http://localhost:3000> and send a message:
 
@@ -28,12 +31,12 @@ curl -X POST http://localhost:3001/webhook/alsalam-motors/message \
 
 Refresh the dashboard and the thread is there with an AI reply.
 
-`pnpm setup` runs `docker compose up -d --wait`, which blocks until Postgres
+`pnpm run setup` runs `docker compose up -d --wait`, which blocks until Postgres
 passes its healthcheck: migrations run immediately afterwards, and a container
 that has merely started is not yet accepting connections.
 
 **On Linux**, if your user is not in the `docker` group, run that one line with
-`sudo` first and then `pnpm setup`:
+`sudo` first and then `pnpm run setup`:
 
 ```bash
 sudo docker compose up -d --wait
@@ -161,7 +164,7 @@ on the page.
 pnpm test
 ```
 
-They need the database from `pnpm setup` to be running, for the reason below.
+They need the database from `pnpm run setup` to be running, for the reason below.
 
 Four tests, on the parts most likely to be wrong and most expensive to get
 wrong:
@@ -279,7 +282,7 @@ idempotency (a unique index, not application logic), and thread ordering
   is built with the `pg` driver adapter.
 - **TypeScript is pinned to 6.x.** The Nest CLI needs the programmatic compiler
   API that TypeScript 7.0 does not ship.
-- **`pnpm setup` writes the `.env` files before installing**, because the api's
+- **`pnpm run setup` writes the `.env` files before installing**, because the api's
   postinstall runs `prisma generate`, which refuses to load its config without
   `DATABASE_URL`. A bare `pnpm install` on a fresh clone fails for that reason.
 - **Workspace filters are paths** (`--filter ./api`), not names. A filter that
@@ -288,7 +291,7 @@ idempotency (a unique index, not application logic), and thread ordering
 ## Environment
 
 `api/.env` and `web/.env` are created from the `.env.example` files by
-`pnpm setup`. Both are gitignored; no key is ever committed.
+`pnpm run setup`. Both are gitignored; no key is ever committed.
 
 | Variable | Where | Default |
 | --- | --- | --- |

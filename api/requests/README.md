@@ -5,7 +5,7 @@ Runnable examples for the [REST Client][rc] VS Code extension
 
 [rc]: https://marketplace.visualstudio.com/items?itemName=humao.rest-client
 
-Start the stack first (`pnpm setup`, then `pnpm dev`) and run the files in
+Start the stack first (`pnpm run setup`, then `pnpm dev`) and run the files in
 order. Each file is self-contained: `@baseUrl` and the tenant are defined at the
 top, and files that need a conversation create one themselves rather than asking
 you to paste an id.
@@ -30,5 +30,5 @@ the idempotency working, not a failure. For a clean run, change the
 `externalId` values or reset the database:
 
 ```bash
-docker compose down -v && pnpm setup
+docker compose down -v && pnpm run setup
 ```
