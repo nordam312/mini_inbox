@@ -28,9 +28,16 @@ curl -X POST http://localhost:3001/webhook/alsalam-motors/message \
 
 Refresh the dashboard and the thread is there with an AI reply.
 
-this note for linux users: هي عشان اذا بتستخدم linux 
-`pnpm setup` runs `docker compose up -d`. If your user is not in the `docker`
-group you will need to run that one line with `sudo` first, then `pnpm setup`.
+`pnpm setup` runs `docker compose up -d --wait`, which blocks until Postgres
+passes its healthcheck: migrations run immediately afterwards, and a container
+that has merely started is not yet accepting connections.
+
+**On Linux**, if your user is not in the `docker` group, run that one line with
+`sudo` first and then `pnpm setup`:
+
+```bash
+sudo docker compose up -d --wait
+```
 
 ### Seeded tenants
 
