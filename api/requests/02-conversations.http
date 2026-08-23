@@ -17,6 +17,11 @@ Content-Type: application/json
   "text": "Are you open on Friday?"
 }
 
+###
+
+
+
+
 @conversation = {{opened.response.body.conversationId}}
 
 ### 1. The inbox list
