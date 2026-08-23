@@ -4,14 +4,14 @@ import {
   getConversation,
   listConversations,
 } from '@/lib/api';
-import { explainApiError } from '@/lib/utils';
+import { actionErrorMessage, explainApiError } from '@/lib/utils';
 import { ConversationList } from './_components/conversation-list';
 import { ConversationThread } from './_components/conversation-thread';
 
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  searchParams: Promise<{ tenant?: string; conversation?: string }>;
+  searchParams: Promise<{ tenant?: string; conversation?: string; error?: string }>;
 }
 
 /**
@@ -23,17 +23,22 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const tenantId = params.tenant ?? DEFAULT_TENANT_ID;
 
   let conversations: ConversationSummary[] = [];
+  let selected = null;
   let loadError: string | null = null;
+  let selectedId: string | undefined;
 
+  // Both reads are in one try: the API can just as easily fail on the second
+  // call as the first, and neither should take the page down.
   try {
     conversations = await listConversations(tenantId);
+    selectedId = params.conversation ?? conversations[0]?.id;
+    selected = selectedId ? await getConversation(tenantId, selectedId) : null;
   } catch (error) {
-    loadError = explainApiError(error, tenantId);
+    loadError = explainApiError(error);
   }
 
-  const selectedId = params.conversation ?? conversations[0]?.id;
-  const selected =
-    selectedId && !loadError ? await getConversation(tenantId, selectedId) : null;
+  // Set by a failed takeover, handback or reply, which redirect back here.
+  const actionError = actionErrorMessage(params.error);
 
   return (
     <main className="layout">
@@ -45,6 +50,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       />
 
       <section className="panel">
+        {actionError && <p className="empty error">{actionError}</p>}
+
         {loadError ? (
           <p className="empty error">{loadError}</p>
         ) : selected ? (

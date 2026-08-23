@@ -20,10 +20,11 @@ export class AnthropicLlm implements LlmProvider {
       apiKey,
       // The SDK already retries 408/409/429/5xx and connection errors with
       // backoff, so there is no hand-written retry loop here. Worst-case wall
-      // clock is timeout x (maxRetries + 1), which is why the timeout is short:
-      // this call happens inside the webhook request.
+      // clock is timeout x (maxRetries + 1) and this call runs inside the
+      // webhook request, so one retry is the budget: a channel provider gives
+      // up and redelivers long before 45 seconds.
       timeout: TIMEOUT_MS,
-      maxRetries: 2,
+      maxRetries: 1,
     });
   }
 

@@ -14,9 +14,6 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  // The dashboard runs on a different port in development.
-  app.enableCors();
-
   await app.listen(process.env.PORT ?? 3001);
 }
 

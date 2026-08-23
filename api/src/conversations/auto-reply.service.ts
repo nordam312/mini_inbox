@@ -14,6 +14,16 @@ export class AutoReplyService {
   ) {}
 
   async replyIfEnabled(conversationId: string): Promise<void> {
+    try {
+      await this.reply(conversationId);
+    } catch (error) {
+      this.logger.error(
+        `Auto-reply failed for conversation ${conversationId}: ${describe(error)}`,
+      );
+    }
+  }
+
+  private async reply(conversationId: string): Promise<void> {
     const context = await this.conversations.loadReplyContext(conversationId);
 
     if (!context) {
@@ -25,24 +35,10 @@ export class AutoReplyService {
       return;
     }
 
-    let reply: string;
-
-    try {
-      reply = await this.llm.complete({
-        system: buildSystemPrompt(context),
-        messages: toLlmMessages(context.messages),
-      });
-    } catch (error) {
-      // The provider is assumed unreliable. The customer's message is already
-      // committed, so the thread simply stays unanswered: the operator sees it
-      // in the dashboard with the customer's message last and can take over.
-      // We do not store an apology the AI never actually formed - a fake reply
-      // reads worse than silence and hides the failure.
-      this.logger.error(
-        `Auto-reply failed for conversation ${conversationId}: ${describe(error)}`,
-      );
-      return;
-    }
+    const reply = await this.llm.complete({
+      system: buildSystemPrompt(context),
+      messages: toLlmMessages(context.messages),
+    });
 
     if (reply.length === 0) {
       this.logger.warn(`Auto-reply for conversation ${conversationId} was empty`);

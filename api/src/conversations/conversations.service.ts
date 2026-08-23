@@ -190,15 +190,8 @@ export class ConversationsService {
     conversationId: string,
     text: string,
   ): Promise<{ messageId: string }> {
-    const conversation = await this.prisma.conversation.findFirst({
-      where: { id: conversationId, tenantId: this.tenant.tenantId },
-      select: { id: true },
-    });
-
-    if (!conversation) {
-      throw new NotFoundException('Conversation not found');
-    }
-
+    // appendMessage throws NotFoundException for a conversation this tenant
+    // does not own, so there is no separate ownership check to keep in sync.
     const messageId = await this.appendMessage(
       conversationId,
       MessageRole.OPERATOR,
@@ -252,24 +245,36 @@ export class ConversationsService {
     await this.appendMessage(conversationId, MessageRole.AI, text);
   }
 
+  /**
+   * The single write path for AI and operator messages.
+   *
+   * The tenant-scoped update runs FIRST and must match a row. That makes the
+   * ownership check part of the write rather than something each caller is
+   * trusted to have done, so a conversationId belonging to another tenant can
+   * never have a message attached to it.
+   */
   private async appendMessage(
     conversationId: string,
     role: MessageRole,
     text: string,
   ): Promise<string> {
     const tenantId = this.tenant.tenantId;
+    const now = new Date();
 
     return this.prisma.$transaction(async (tx) => {
-      const message = await tx.message.create({
-        data: { tenantId, conversationId, role, text },
-        select: { id: true, createdAt: true },
+      const { count } = await tx.conversation.updateMany({
+        where: { id: conversationId, tenantId },
+        data: { lastMessageAt: now },
       });
 
-      // updateMany so tenantId is part of the write itself, rather than merely
-      // implied by the caller having read the conversation earlier.
-      await tx.conversation.updateMany({
-        where: { id: conversationId, tenantId },
-        data: { lastMessageAt: message.createdAt },
+      if (count === 0) {
+        throw new NotFoundException('Conversation not found');
+      }
+
+      const message = await tx.message.create({
+        // createdAt is set explicitly so it matches lastMessageAt exactly.
+        data: { tenantId, conversationId, role, text, createdAt: now },
+        select: { id: true },
       });
 
       return message.id;
