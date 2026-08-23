@@ -1,0 +1,21 @@
+{
+  "name": "mini-inbox",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "setup": "node scripts/setup-env.mjs && docker compose up -d && pnpm install && pnpm db:migrate && pnpm db:seed",
+    "dev": "concurrently --names api,web --prefix-colors blue,magenta \"pnpm --filter ./api start:dev\" \"pnpm --filter ./web dev\"",
+    "build": "pnpm --filter ./api build && pnpm --filter ./web build",
+    "db:migrate": "pnpm --filter ./api exec prisma migrate deploy",
+    "db:seed": "pnpm --filter ./api seed"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "prisma",
+      "@prisma/engines"
+    ]
+  }
+}

@@ -32,11 +32,5 @@
     "prisma": "^7.9.1",
     "tsx": "^4.23.12",
     "typescript": "^6.0.3"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "prisma",
-      "@prisma/engines"
-    ]
   }
 }
