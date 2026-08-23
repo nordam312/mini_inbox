@@ -2,13 +2,25 @@
 
 import { revalidatePath } from 'next/cache';
 
-import { sendOperatorReply, takeOverConversation } from '@/lib/api';
+import {
+  handBackConversation,
+  sendOperatorReply,
+  takeOverConversation,
+} from '@/lib/api';
 
 export async function takeOverAction(formData: FormData): Promise<void> {
   const tenantId = String(formData.get('tenantId'));
   const conversationId = String(formData.get('conversationId'));
 
   await takeOverConversation(tenantId, conversationId);
+  revalidatePath('/');
+}
+
+export async function handBackAction(formData: FormData): Promise<void> {
+  const tenantId = String(formData.get('tenantId'));
+  const conversationId = String(formData.get('conversationId'));
+
+  await handBackConversation(tenantId, conversationId);
   revalidatePath('/');
 }
 

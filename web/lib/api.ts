@@ -84,6 +84,10 @@ export function takeOverConversation(tenantId: string, id: string): Promise<unkn
   return request(tenantId, `/conversations/${id}/takeover`, { method: 'POST' });
 }
 
+export function handBackConversation(tenantId: string, id: string): Promise<unknown> {
+  return request(tenantId, `/conversations/${id}/handback`, { method: 'POST' });
+}
+
 export function sendOperatorReply(
   tenantId: string,
   id: string,

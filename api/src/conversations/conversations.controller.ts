@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 
 import {
+  ConversationAiState,
   ConversationDetail,
   ConversationsService,
   ConversationSummary,
@@ -31,8 +32,14 @@ export class ConversationsController {
 
   @Post(':id/takeover')
   @HttpCode(HttpStatus.OK)
-  takeOver(@Param('id') id: string): Promise<{ id: string; aiEnabled: boolean }> {
+  takeOver(@Param('id') id: string): Promise<ConversationAiState> {
     return this.conversations.takeOver(id);
+  }
+
+  @Post(':id/handback')
+  @HttpCode(HttpStatus.OK)
+  handBack(@Param('id') id: string): Promise<ConversationAiState> {
+    return this.conversations.handBack(id);
   }
 
   @Post(':id/reply')

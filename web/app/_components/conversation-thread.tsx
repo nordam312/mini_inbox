@@ -1,5 +1,5 @@
 import type { ConversationDetail, MessageRole } from '@/lib/api';
-import { takeOverAction } from '../actions';
+import { handBackAction, takeOverAction } from '../actions';
 import { MessageComposer } from './message-composer';
 
 interface ConversationThreadProps {
@@ -19,9 +19,11 @@ export function ConversationThread({
           <span className="badge">
             {conversation.aiEnabled ? 'AI replying' : 'operator handling'}
           </span>
-          {conversation.aiEnabled && (
-            <TakeOverButton tenantId={tenantId} conversationId={conversation.id} />
-          )}
+          <AiStateButton
+            tenantId={tenantId}
+            conversationId={conversation.id}
+            aiEnabled={conversation.aiEnabled}
+          />
         </div>
       </div>
 
@@ -41,18 +43,22 @@ export function ConversationThread({
   );
 }
 
-function TakeOverButton({
-  tenantId,
-  conversationId,
-}: {
+interface AiStateButtonProps {
   tenantId: string;
   conversationId: string;
-}) {
+  aiEnabled: boolean;
+}
+
+/**
+ * Takeover and hand back are separate endpoints rather than a toggle, so the
+ * button says what will happen rather than what the state currently is.
+ */
+function AiStateButton({ tenantId, conversationId, aiEnabled }: AiStateButtonProps) {
   return (
-    <form action={takeOverAction}>
+    <form action={aiEnabled ? takeOverAction : handBackAction}>
       <input type="hidden" name="tenantId" value={tenantId} />
       <input type="hidden" name="conversationId" value={conversationId} />
-      <button type="submit">Take over</button>
+      <button type="submit">{aiEnabled ? 'Take over' : 'Hand back to AI'}</button>
     </form>
   );
 }

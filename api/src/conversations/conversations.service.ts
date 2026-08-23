@@ -12,6 +12,11 @@ const HISTORY_LIMIT = 20;
 const CONVERSATION_LIST_LIMIT = 50;
 const THREAD_MESSAGE_LIMIT = 200;
 
+export interface ConversationAiState {
+  id: string;
+  aiEnabled: boolean;
+}
+
 export interface ConversationSummary {
   id: string;
   customerHandle: string;
@@ -144,18 +149,36 @@ export class ConversationsService {
     };
   }
 
-  /** Idempotent: taking over an already-taken-over conversation is not an error. */
-  async takeOver(conversationId: string): Promise<{ id: string; aiEnabled: boolean }> {
+  /** An operator takes the thread. Idempotent. */
+  async takeOver(conversationId: string): Promise<ConversationAiState> {
+    return this.setAiEnabled(conversationId, false);
+  }
+
+  /**
+   * The operator gives the thread back. Idempotent.
+   *
+   * The AI is not asked to answer the message that is already waiting - it
+   * resumes on the next inbound one. Answering now would talk over an operator
+   * who may have handled the question by phone.
+   */
+  async handBack(conversationId: string): Promise<ConversationAiState> {
+    return this.setAiEnabled(conversationId, true);
+  }
+
+  private async setAiEnabled(
+    conversationId: string,
+    aiEnabled: boolean,
+  ): Promise<ConversationAiState> {
     const { count } = await this.prisma.conversation.updateMany({
       where: { id: conversationId, tenantId: this.tenant.tenantId },
-      data: { aiEnabled: false },
+      data: { aiEnabled },
     });
 
     if (count === 0) {
       throw new NotFoundException('Conversation not found');
     }
 
-    return { id: conversationId, aiEnabled: false };
+    return { id: conversationId, aiEnabled };
   }
 
   /**
