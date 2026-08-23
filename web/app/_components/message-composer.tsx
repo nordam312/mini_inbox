@@ -14,7 +14,12 @@ export function MessageComposer({ tenantId, conversationId }: MessageComposerPro
     <form className="composer" action={replyAction}>
       <input type="hidden" name="tenantId" value={tenantId} />
       <input type="hidden" name="conversationId" value={conversationId} />
-      <textarea name="text" rows={2} placeholder="Reply as an operator..." />
+      <textarea
+        name="text"
+        rows={2}
+        dir="auto"
+        placeholder="Reply as an operator..."
+      />
       <button className="primary" type="submit">
         Send
       </button>

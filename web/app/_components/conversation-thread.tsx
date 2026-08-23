@@ -75,7 +75,13 @@ function MessageBubble({ role, text, createdAt }: MessageBubbleProps) {
       <div className="message-meta">
         {role.toLowerCase()} · {new Date(createdAt).toLocaleString()}
       </div>
-      {text}
+      {/*
+        dir="auto" on the text itself, not the bubble: the bubble starts with
+        the Latin meta line, so the browser would infer left-to-right for an
+        Arabic message. Kasbly is bilingual, and a customer writing Arabic
+        should not read their own words laid out backwards.
+      */}
+      <div dir="auto">{text}</div>
     </div>
   );
 }

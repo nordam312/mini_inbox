@@ -88,9 +88,15 @@ function ConversationListItem({
         {!conversation.aiEnabled && <span className="badge operator">operator</span>}
       </div>
       <div className="preview">
-        {lastMessage
-          ? `${lastMessage.role.toLowerCase()}: ${lastMessage.text}`
-          : 'No messages'}
+        {lastMessage ? (
+          <>
+            {lastMessage.role.toLowerCase()}:{' '}
+            {/* Isolated so an Arabic preview does not reorder the label. */}
+            <span dir="auto">{lastMessage.text}</span>
+          </>
+        ) : (
+          'No messages'
+        )}
       </div>
     </Link>
   );
