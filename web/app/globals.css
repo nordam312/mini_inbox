@@ -1,0 +1,182 @@
+:root {
+  --border: #d8dce3;
+  --muted: #6b7280;
+  --bg-panel: #ffffff;
+  --bg-page: #f4f5f7;
+  --customer: #eef2f7;
+  --ai: #e7f2ec;
+  --operator: #fdf1dc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg-page);
+  color: #14171c;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  height: 100vh;
+  padding: 16px;
+}
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-head {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.scroll {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
+
+.conversation {
+  display: block;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+}
+
+.conversation:hover {
+  background: #f8f9fb;
+}
+
+.conversation.selected {
+  background: #eef4ff;
+}
+
+.handle {
+  font-weight: 600;
+}
+
+.preview {
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.badge.operator {
+  background: var(--operator);
+  border-color: #e6c98a;
+  color: #7a5b12;
+}
+
+.message {
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin: 10px 14px;
+  max-width: 75%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.message.CUSTOMER {
+  background: var(--customer);
+}
+
+.message.AI {
+  background: var(--ai);
+  margin-left: auto;
+}
+
+.message.OPERATOR {
+  background: var(--operator);
+  margin-left: auto;
+}
+
+.message-meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+
+.composer {
+  border-top: 1px solid var(--border);
+  padding: 12px 14px;
+  display: flex;
+  gap: 8px;
+}
+
+textarea,
+input[type='text'] {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 100%;
+  resize: vertical;
+}
+
+button {
+  font: inherit;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:hover {
+  background: #f2f4f7;
+}
+
+button.primary {
+  background: #1f6feb;
+  border-color: #1f6feb;
+  color: #fff;
+}
+
+button.primary:hover {
+  background: #1a5fd0;
+}
+
+.empty {
+  padding: 24px 14px;
+  color: var(--muted);
+}
+
+.toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.empty.error {
+  color: #8a1c1c;
+  background: #fdeaea;
+  border-radius: 6px;
+  margin: 12px;
+}
